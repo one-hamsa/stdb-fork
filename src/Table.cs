@@ -141,7 +141,7 @@ namespace SpacetimeDB
                 table.OnInternalDelete += row =>
                 {
                     var key = GetKey(row);
-                    var keyCache = cache[key];
+                    if(!cache.TryGetValue(key, out var keyCache)) return;
                     keyCache.Remove(row);
                     if (keyCache.Count == 0)
                     {
