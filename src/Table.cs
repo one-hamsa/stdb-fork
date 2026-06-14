@@ -396,7 +396,35 @@ namespace SpacetimeDB
 
         public int Count => (int)Entries.CountDistinct;
 
-        public IEnumerable<Row> Iter() => Entries.Entries.Select(entry => (Row)entry.Value);
+        // Allocation-free row iteration. Returns a struct enumerable so `foreach` binds to the struct
+        // GetEnumerator below and never allocates — the cached rows are walked through the underlying
+        // Dictionary's struct enumerator directly. The IEnumerable<Row> interface impls remain so LINQ
+        // and return-as-IEnumerable callers still work (those box the struct once, on cold paths).
+        public RowEnumerable Iter() => new(Entries.RawDict);
+
+        public readonly struct RowEnumerable : IEnumerable<Row>
+        {
+            private readonly Dictionary<object, (Row Value, uint Multiplicity)> entries;
+
+            internal RowEnumerable(Dictionary<object, (Row Value, uint Multiplicity)> entries) => this.entries = entries;
+
+            public RowEnumerator GetEnumerator() => new(entries);
+            IEnumerator<Row> IEnumerable<Row>.GetEnumerator() => GetEnumerator();
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public struct RowEnumerator : IEnumerator<Row>
+        {
+            private Dictionary<object, (Row Value, uint Multiplicity)>.Enumerator inner;
+
+            internal RowEnumerator(Dictionary<object, (Row Value, uint Multiplicity)> entries) => inner = entries.GetEnumerator();
+
+            public Row Current => inner.Current.Value.Value;
+            object System.Collections.IEnumerator.Current => Current;
+            public bool MoveNext() => inner.MoveNext();
+            public void Reset() => ((System.Collections.IEnumerator)inner).Reset();
+            public void Dispose() => inner.Dispose();
+        }
 
         public Task<Row[]> RemoteQuery(string query) =>
             conn.RemoteQuery<Row>($"SELECT {RemoteTableName}.* FROM {RemoteTableName} {query}");

@@ -20,7 +20,7 @@ namespace SpacetimeDB
     internal struct MultiDictionary<TKey, TValue> : IEquatable<MultiDictionary<TKey, TValue>>
     {
         // The actual data.
-        readonly Dictionary<TKey, (TValue Value, uint Multiplicity)> RawDict;
+        internal readonly Dictionary<TKey, (TValue Value, uint Multiplicity)> RawDict;
         readonly IEqualityComparer<TValue> ValueComparer;
 
         /// <summary>
